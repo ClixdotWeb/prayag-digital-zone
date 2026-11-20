@@ -45,6 +45,7 @@ export default function Header() {
   const bar = useRef(null);
   const [scrolled, setScrolled] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [prodOpen, setProdOpen] = useState(false); // phone menu: Products list folds up/down
   const role = roleOf(path);
   const seg = path.split('/')[1] || undefined;
 
@@ -60,7 +61,7 @@ export default function Header() {
     setH(); update();
     return () => { ro?.disconnect(); document.removeEventListener('scroll', update, { capture: true }); window.removeEventListener('resize', setH); };
   }, []);
-  useEffect(() => { setMenu(false); }, [path]);
+  useEffect(() => { setMenu(false); setProdOpen(false); }, [path]);
 
   const link = (href, label, key) => <Link key={href + label} href={href} className={`pf-link${seg === key ? ' active' : ''}`}>{label}</Link>;
   const customer = role === 'customer';
@@ -69,8 +70,8 @@ export default function Header() {
   else if (role === 'production') nav = [link('/production', 'Job queue', 'production')];
   else nav = [
     link('/', 'Home', undefined),
-    <div key="products" className={`pf-drop${seg === 'products' || seg === 'product' ? ' active' : ''}`}>
-      <Link href="/products" className="pf-link">Products <svg className="pf-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></Link>
+    <div key="products" className={`pf-drop${seg === 'products' || seg === 'product' ? ' active' : ''}${prodOpen ? ' sub-open' : ''}`}>
+      <Link href="/products" className="pf-link" aria-expanded={prodOpen} onClick={(e) => { if (window.matchMedia('(max-width: 980px)').matches) { e.preventDefault(); setProdOpen((o) => !o); } }}>Products <svg className="pf-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></Link>
       <div className="pf-menu">
         {CATEGORIES.map((c) => {
           const ps = PRODUCTS.filter((p) => p.cat === c.id);
@@ -86,10 +87,15 @@ export default function Header() {
       </div>
     </div>,
     link('/samples', 'Samples', 'samples'), link('/page/about', 'About', 'page'),
+    <div key="sl" className="pf-sm-links">
+      <Link href="/products"><Icon name="search" /> Search products</Link>
+      <Link href="/wishlist"><HeartIcon className="ico" size={undefined} /> Wishlist{ready && S.wishlist.length > 0 && <span className="badge">{S.wishlist.length}</span>}</Link>
+    </div>,
     <div key="sm" className="pf-sm-btns"><Link className="pf-btn pf-outline" href="/account">{ready && S.user ? 'My account' : 'Sign in'}</Link><Link className="pf-btn pf-fill" href="/quote">Bulk quote</Link></div>,
   ];
   // Transparent over the home hero until the page is scrolled (or the mobile menu is open)
   const clear = path === '/' && !scrolled && !menu;
+  nav = [...nav, <div key="va" className="pf-sm-roles"><span>View as</span>{ROLES.map(([k, l, href]) => <Link key={k} href={href} className={k === role ? 'on' : ''}>{l}</Link>)}</div>];
   const n = ready ? S.cart.length : 0;
   const w = ready ? S.wishlist.length : 0;
 
@@ -102,8 +108,8 @@ export default function Header() {
         <nav className="pf-nav" id="mainnav">{nav}</nav>
         <div className="pf-right">
           {customer && <>
-            <Link className="pf-ico" href="/products" aria-label="Search products"><Icon name="search" /></Link>
-            <Link className="pf-ico" href="/wishlist" aria-label={`Wishlist (${w})`}><HeartIcon className="ico" size={undefined} />{w > 0 && <span className="badge">{w}</span>}</Link>
+            <Link className="pf-ico pf-hide-sm" href="/products" aria-label="Search products"><Icon name="search" /></Link>
+            <Link className="pf-ico pf-hide-sm" href="/wishlist" aria-label={`Wishlist (${w})`}><HeartIcon className="ico" size={undefined} />{w > 0 && <span className="badge">{w}</span>}</Link>
             <a className="pf-ico" href="/cart" aria-label={`Cart (${n})`} onClick={(e) => { e.preventDefault(); openCart(false); }}><Icon name="cart" />{n > 0 && <span className="badge">{n}</span>}</a>
             <Link className="pf-btn pf-outline" href="/account">{ready && S.user ? 'My account' : 'Sign in'}</Link>
             <Link className="pf-btn pf-fill" href="/quote">Bulk quote</Link>
