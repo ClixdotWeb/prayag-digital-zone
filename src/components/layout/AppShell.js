@@ -28,7 +28,7 @@ export default function AppShell({ children }) {
 
   useEffect(() => { closeCart(); window.scrollTo(0, 0); }, [path]);
   useEffect(() => {
-    if (ready) document.title = `${S.settings.company} — ${role === 'customer' ? 'Online Printing & Packaging' : role === 'admin' ? 'Admin' : 'Production'}`;
+    if (ready) document.title = role === 'customer' ? 'PRAYAG-online printing' : `PRAYAG — ${role === 'admin' ? 'Admin' : 'Production'}`;
   });
   useAnimations(path, ready);
 

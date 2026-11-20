@@ -12,7 +12,7 @@ const mainFont = Montserrat({ subsets: ['latin'], weight: ['400', '500', '600', 
 const displayFont = Archivo({ subsets: ['latin'], weight: 'variable', axes: ['wdth'], display: 'swap', variable: '--font-display' });
 
 export const metadata = {
-  title: 'BRD — Online Printing & Packaging',
+  title: 'PRAYAG-online printing',
   description: 'Order visiting cards, brochures, flyers, stickers, boxes and more online. Instant prices, artwork upload, secure payment and live order tracking.',
 };
 
