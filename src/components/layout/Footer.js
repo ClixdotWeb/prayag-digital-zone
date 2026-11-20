@@ -41,7 +41,7 @@ export default function Footer() {
         </div>
       </div>
       <div className="wrap footer-bottom">
-        <span>© 2026 BRD · Powered by <a href="https://clixdot.com" target="_blank" rel="noopener">Clixdot</a></span>
+        <span>© 2026 Prayag Digital Zone. All rights reserved.</span>
         <span className="paychips"><span>UPI</span><span>VISA</span><span>Mastercard</span><span>RuPay</span><span>Net banking</span></span>
         <button className="pv-top-btn" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>Back to top <span aria-hidden="true">↑</span></button>
       </div>
