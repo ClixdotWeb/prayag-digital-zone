@@ -103,7 +103,7 @@ export default function Header() {
     <header className={`topbar pf-head${scrolled ? ' scrolled' : ''}${menu ? ' menu-open' : ''}${clear ? ' pf-clear' : ''}`} ref={bar}>
       <div className="wrap pf-in">
         <Link href="/" className="logo" aria-label="Prayag Digital Zone home">
-          <img className="logo-img" src="/img/logo.png" alt="Prayag Digital Zone — the ultimate printing solution" width="1158" height="340" />
+          <img className="logo-img" src="/img/logo-light.png" alt="Prayag Digital Zone — the ultimate printing solution" width="439" height="300" />
         </Link>
         <nav className="pf-nav" id="mainnav">{nav}</nav>
         <div className="pf-right">

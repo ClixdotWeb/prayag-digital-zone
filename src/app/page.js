@@ -5,6 +5,7 @@ import { useApp } from '@/context/StoreProvider';
 import { allProducts } from '@/lib/core';
 import Icon, { Photo } from '@/components/ui/Icon';
 import ProductTile from '@/components/ui/ProductTile';
+import Machines from '@/components/ui/Machines';
 
 const FAQS = [
   ['What file formats do you accept?', 'PDF, AI, PSD, CDR, SVG, PNG, JPG and TIFF, up to 100 MB each. A print-ready PDF at 300 DPI with 3 mm bleed gives the best result.'],
@@ -64,6 +65,9 @@ export default function Home() {
         </div>
         <div className="sx-car" ref={car}>{popular.map((p) => <ProductTile key={p.id} p={p} />)}</div>
       </section>
+
+      {/* Our machines */}
+      <Machines className="wrap sx-sec" />
 
       {/* Mosaic: testimonials + contact tile */}
       <section className="wrap sx-sec dr-testi">

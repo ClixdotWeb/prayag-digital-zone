@@ -17,7 +17,7 @@ export default function Footer() {
         </div>
         <div className="footer-cols">
           <div>
-            <Link href="/" className="logo logo-foot" aria-label="Prayag Digital Zone home"><img className="logo-img" src="/img/logo.png" alt="Prayag Digital Zone — the ultimate printing solution" width="1158" height="340" /></Link>
+            <Link href="/" className="logo logo-foot" aria-label="Prayag Digital Zone home"><img className="logo-img" src="/img/logo-light.png" alt="Prayag Digital Zone — the ultimate printing solution" width="439" height="300" /></Link>
             <p>Online printing and packaging from Kozhikode. Order any time, track every step, delivered across India.</p>
             <div className="socials">
               <Link href="/" aria-label="Facebook"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M13.5 22v-8.2h2.8l.4-3.2h-3.2V8.5c0-.9.3-1.6 1.6-1.6h1.7V4.1c-.3 0-1.3-.1-2.5-.1-2.5 0-4.1 1.5-4.1 4.3v2.4H7.4v3.2h2.8V22h3.3Z" /></svg></Link>

@@ -14,7 +14,7 @@ const findOrder = (id) => S().orders.find((o) => o.id === id);
 
 /* ---------- Product configurator ---------- */
 export function initCfg(p) {
-  if (!session.cfg || session.cfg.pid !== p.id) session.cfg = { pid: p.id, sel: defaultSel(p), qty: p.minQty, custom: { w: 210, h: 297 }, files: [] };
+  if (!session.cfg || session.cfg.pid !== p.id) session.cfg = { pid: p.id, sel: defaultSel(p), qty: '', custom: { w: 210, h: 297 }, files: [] };
   return session.cfg;
 }
 export function pickOption(p, key, i) {

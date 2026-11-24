@@ -2,13 +2,12 @@
 import Link from 'next/link';
 import { useRef } from 'react';
 import { useApp } from '@/context/StoreProvider';
-import { inr, product, totals } from '@/lib/core';
+import { inr, product, qtyOptions, totals } from '@/lib/core';
 import { applyCoupon, moveToCart, removeItem, saveForLater, setCartQty } from '@/lib/actions';
 import { Photo } from '@/components/ui/Icon';
 
 function Row({ it, saved }) {
   const p = product(it.pid);
-  const commit = (e) => { if (+e.target.value !== it.qty) setCartQty(it.id, e.target.value); };
   return (
     <div className="card card-flat row" style={{ alignItems: 'flex-start' }}>
       <div style={{ width: 80, flex: 'none', borderRadius: 14 }} className="pd-art photo"><Photo id={p.id} alt={p.name} /></div>
@@ -17,8 +16,7 @@ function Row({ it, saved }) {
         <div className="small">{it.files.length ? `${it.files.length} design file(s) attached` : <span style={{ color: 'var(--warn)' }}>No design uploaded yet</span>}</div>
         <div className="row" style={{ marginTop: 6 }}>
           {saved ? <button className="btn-sm" onClick={() => moveToCart(it.id)}>Move to cart</button> : <>
-            <label className="small">Qty <input key={it.qty} type="number" min={p.minQty} step={p.step} defaultValue={it.qty} style={{ width: 100 }}
-              onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') commit(e); }} /></label>
+            <label className="small">Qty <select value={it.qty} onChange={(e) => setCartQty(it.id, e.target.value)} style={{ width: 110 }}>{[...new Set([...qtyOptions(p), it.qty])].sort((a, b) => a - b).map((q) => <option key={q} value={q}>{q.toLocaleString('en-IN')}</option>)}</select></label>
             <button className="btn-sm" onClick={() => saveForLater(it.id)}>Save for later</button></>}
           <button className="btn-sm" onClick={() => removeItem(it.id, saved)}>Remove</button>
         </div></div>

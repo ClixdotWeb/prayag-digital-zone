@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { use } from 'react';
 import { useApp } from '@/context/StoreProvider';
 import Icon, { Photo } from '@/components/ui/Icon';
+import Machines from '@/components/ui/Machines';
 import NotFoundCard from '@/components/shop/NotFound';
 
 const PAGES = { about: 'About us', services: 'Services', contact: 'Contact us', faq: 'FAQ', privacy: 'Privacy policy', terms: 'Terms & conditions', refund: 'Refund policy', blog: 'Blog', careers: 'Careers' };
@@ -30,6 +31,7 @@ export default function InfoPage({ params }) {
         <div className="row ab-cta"><Link className="btn btn-primary" href="/products">Browse products</Link><Link className="btn" href="/quote">Get a bulk quote</Link></div>
         {note}
       </section>
+      <Machines className="ab-mc" />
     </div>
   );
 }

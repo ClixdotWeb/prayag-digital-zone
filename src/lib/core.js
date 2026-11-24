@@ -63,6 +63,8 @@ export function calc(p, sel, qty, custom) {
   const per = unit * mult * tier;
   return { per: round2(per), flat, tier, total: round2(per * qty + flat) };
 }
+/** Fixed quantity choices for a product (e.g. visiting cards: 100 / 200 / 500 / 1000 / 2000). */
+export function qtyOptions(p) { return [1, 2, 5, 10, 20].map((m) => p.minQty * m); }
 export function startPrice(p) { return calc(p, defaultSel(p), p.minQty).total; }
 export function describe(p, sel, custom) {
   return p.options.map((g) => {

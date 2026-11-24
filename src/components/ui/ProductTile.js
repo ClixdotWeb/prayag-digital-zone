@@ -1,7 +1,8 @@
 'use client';
+// Service card: no fixed price and no "Add to cart" — the price depends on the options the customer chooses.
 import Link from 'next/link';
-import { inr, startPrice, store } from '@/lib/core';
-import { quickAdd, toggleWish } from '@/lib/actions';
+import { store } from '@/lib/core';
+import { toggleWish } from '@/lib/actions';
 import { HeartIcon, Photo } from './Icon';
 
 export default function ProductTile({ p }) {
@@ -16,9 +17,8 @@ export default function ProductTile({ p }) {
       </div>
       <div className="body">
         <Link className="name" href={`/product/${p.id}`}>{p.name}</Link>
-        <div className="price">{inr(startPrice(p), 0)}</div>
-        <div className="muted small">{p.minQty} pcs from · Ready in {p.days} working days</div>
-        <button className="add-btn" onClick={() => quickAdd(p.id)}>Add to cart</button>
+        <div className="muted small">From {p.minQty} pcs · Ready in {p.days} working days</div>
+        <Link className="add-btn" href={`/product/${p.id}`}>Choose options &amp; get price</Link>
       </div>
     </div>
   );
