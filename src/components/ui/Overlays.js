@@ -34,10 +34,10 @@ export function CartDrawer() {
             const p = product(it.pid);
             return (
               <div className="cd-item" key={it.id}>
-                <div className="cd-img">{p && <Photo id={p.id} alt={it.name} />}</div>
+                <div className="cd-img">{p ? <Photo id={p.id} alt={it.name} /> : it.kind === 'print' && <span className="pr-cart-ico">{it.print.options.type === 'bw' ? 'B&W' : it.print.options.size}</span>}</div>
                 <div className="cd-info">
                   <div className="cd-name">{it.name}</div>
-                  <div className="cd-spec">{it.qty} pcs · {it.specs.slice(0, 2).map((x) => x.split(': ').pop()).join(' · ')}</div>
+                  <div className="cd-spec">{it.qty} {it.kind === 'print' ? 'prints' : 'pcs'} · {it.specs.slice(0, 2).map((x) => x.split(': ').pop()).join(' · ')}</div>
                   <b className="cd-price">{inr(it.total)}</b>
                 </div>
                 <button className="cd-rm" onClick={() => drawerRemove(it.id)} aria-label={`Remove ${it.name}`}>
@@ -90,7 +90,7 @@ function LabelBox({ orderId }) {
   return (
     <div className="modal-box" style={{ padding: 20 }}>
       <div style={{ border: '2px dashed var(--ink)', padding: 16, fontFamily: 'monospace' }}>
-        <strong>FROM:</strong> {S.settings.company}, Mavoor Road, Kozhikode 673004<br /><br />
+        <strong>FROM:</strong> {S.settings.company}, Medical College Road, Kovoor, Kozhikode 673008 · Ph: 081130 33888<br /><br />
         <strong>TO:</strong> {o.customer.name}<br />{sh.address || ''}<br />{sh.city || ''}, {sh.state || ''} {sh.pin || ''}<br />Ph: {o.customer.phone}<br /><br />
         <strong>ORDER:</strong> {o.id} · {o.items.length} item(s)
       </div>

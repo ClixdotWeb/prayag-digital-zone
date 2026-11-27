@@ -15,7 +15,7 @@ export default function Invoice({ params }) {
   return (
     <div className="page"><div className="row no-print" style={{ marginBottom: 12 }}><button onClick={() => window.print()}>Print / Save PDF</button><Link className="btn" href={`/track/${o.id}`}>Back to order</Link></div>
       <div className="invoice">
-        <div className="row between"><div><h2 style={{ margin: 0 }}>{st.company}</h2><div className="small">Mavoor Road, Kozhikode, Kerala 673004<br />GSTIN {st.gstin}</div></div>
+        <div className="row between"><div><h2 style={{ margin: 0 }}>{st.company}</h2><div className="small">Medical College Road, Kovoor, Kozhikode 673008, Kerala<br />Ph: 081130 33888, 094952 22288<br />GSTIN {st.gstin}</div></div>
           <div style={{ textAlign: 'right' }}><h2 style={{ margin: 0 }}>TAX INVOICE</h2><div className="small">INV-{o.id.slice(3)} · {fmtDate(o.createdAt)}<br />Order {o.id}</div></div></div>
         <hr /><div className="small"><strong>Bill to:</strong> {o.customer.name}{o.customer.gstin ? ` · GSTIN ${o.customer.gstin}` : ''}<br />{o.customer.address || ''}, {o.customer.city || ''}, {o.customer.state || ''} {o.customer.pin || ''}<br />{o.customer.phone} · {o.customer.email}</div>
         <table style={{ marginTop: 16 }}><thead><tr><th>Item</th><th className="num">Qty</th><th className="num">Rate</th><th className="num">Amount</th></tr></thead><tbody>

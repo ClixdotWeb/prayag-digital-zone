@@ -2,6 +2,7 @@
 // Loads the saved state once in the browser and re-renders the app whenever it changes.
 import { createContext, useContext, useEffect, useState } from 'react';
 import { load, onChange, store } from '@/lib/core';
+import { loadRole } from '@/lib/roles';
 
 const Ctx = createContext({ ready: false, ver: 0 });
 
@@ -10,6 +11,7 @@ export function StoreProvider({ children }) {
   const [ver, setVer] = useState(0);
   useEffect(() => {
     load();
+    loadRole();
     setReady(true);
     return onChange(() => setVer((v) => v + 1));
   }, []);

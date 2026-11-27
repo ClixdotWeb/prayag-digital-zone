@@ -7,6 +7,7 @@ import { useApp } from '@/context/StoreProvider';
 import { closeCart, setNavigator } from '@/lib/session';
 import useAnimations from '@/hooks/useAnimations';
 import { roleOf } from './Header';
+import AdminShell from '@/components/admin/AdminShell';
 
 export default function AppShell({ children }) {
   const path = usePathname();
@@ -28,11 +29,13 @@ export default function AppShell({ children }) {
 
   useEffect(() => { closeCart(); window.scrollTo(0, 0); }, [path]);
   useEffect(() => {
-    if (ready) document.title = role === 'customer' ? 'PRAYAG-online printing' : `PRAYAG — ${role === 'admin' ? 'Admin' : 'Production'}`;
+    if (ready && role !== 'admin') document.title = role === 'customer' ? 'PRAYAG-online printing' : 'PRAYAG — Production'; // admin pages set their own title
   });
   useAnimations(path, ready);
 
   if (!ready) return <main id="app" />;
+  // Admin: own layout (sidebar + top bar); the shop header, footer and WhatsApp button are hidden by CSS (body:has(.adm)).
+  if (role === 'admin') return <main id="app" className="pv-admin"><AdminShell>{children}</AdminShell></main>;
   // Inner pages sit on a light page band (Printec-style); role class lets admin/production get their own tweaks.
   return <main id="app" className={`pv-${role}`}>{path === '/' ? children : <div className="pv-band"><div className="wrap">{children}</div></div>}</main>;
 }

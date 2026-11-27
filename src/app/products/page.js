@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useApp } from '@/context/StoreProvider';
 import { CATEGORIES } from '@/lib/data';
-import { allProducts, inr, startPrice } from '@/lib/core';
+import { allProducts, inCat, inr, isChoice, startPrice } from '@/lib/core';
 import { session } from '@/lib/session';
 import { clearFilters, setFilter } from '@/lib/actions';
 import Icon from '@/components/ui/Icon';
@@ -26,7 +26,7 @@ function Products() {
   const f = session.shopFilter;
   const all = allProducts();
   const papers = [...new Set(all.flatMap((p) => (p.options.find((g) => g.key === 'paper')?.choices || []).map((c) => c.label)))];
-  const maxStart = Math.ceil(Math.max(...all.map(startPrice)) / 100) * 100;
+  const maxStart = Math.ceil(Math.max(...all.map(startPrice).filter((x) => x !== null)) / 100) * 100;
   const [rangeLbl, setRangeLbl] = useState(null);
   const [sheet, setSheet] = useState(false); // phone: Filter & Sort bottom sheet
   const [sort, setSort] = useState('default');
@@ -34,15 +34,21 @@ function Products() {
     document.body.classList.toggle('cd-lock', sheet);
     return () => document.body.classList.remove('cd-lock');
   }, [sheet]);
+  // Search covers name, description, category, option names and choices (e.g. "wiro", "PVC", "flex", "rubber seal").
+  const words = (p) => [p.name, p.desc, p.keywords, ...p.specs, ...CATEGORIES.filter((c) => inCat(p, c.id)).map((c) => c.name),
+    ...p.options.flatMap((g) => [g.label, ...(isChoice(g) ? g.choices.map((c) => c.label) : [])])].join(' ').toLowerCase();
+  const matches = (p, q) => q.toLowerCase().split(/\s+/).filter(Boolean).every((w) => words(p).includes(w));
   const has = (p, key, label) => (p.options.find((g) => g.key === key)?.choices || []).some((c) => c.label === label);
   const list = all.filter((p) =>
-    (!f.cat || p.cat === f.cat) &&
-    (!f.q || (p.name + ' ' + p.desc).toLowerCase().includes(f.q.toLowerCase())) &&
+    (!f.cat || inCat(p, f.cat)) &&
+    (!f.q || matches(p, f.q)) &&
     (!f.paper.length || f.paper.some((x) => has(p, 'paper', x))) &&
     (!f.lam.length || f.lam.some((x) => has(p, 'lamination', x))) &&
-    (!f.max || startPrice(p) <= f.max));
-  if (sort === 'asc') list.sort((a, b) => startPrice(a) - startPrice(b));
-  else if (sort === 'desc') list.sort((a, b) => startPrice(b) - startPrice(a));
+    (!f.max || (startPrice(p) !== null && startPrice(p) <= f.max)));
+  const hiddenQuote = f.max ? all.filter((p) => startPrice(p) === null && (!f.cat || inCat(p, f.cat)) && (!f.q || matches(p, f.q))).length : 0;
+  const byPrice = (dir) => (a, b) => { const x = startPrice(a), y = startPrice(b); if (x === null || y === null) return (x === null) - (y === null); return dir * (x - y); };
+  if (sort === 'asc') list.sort(byPrice(1));
+  else if (sort === 'desc') list.sort(byPrice(-1));
   const active = (f.q ? 1 : 0) + (f.cat ? 1 : 0) + (f.max ? 1 : 0) + f.paper.length + f.lam.length;
   const setAndClean = (k, v) => { setFilter(k, v); if (sp.toString()) router.replace('/products'); };
   const applyRange = (e) => { const v = +e.currentTarget.value; setRangeLbl(null); setFilter('max', v >= maxStart ? 0 : v); };
@@ -67,7 +73,7 @@ function Products() {
             <div className="fcats">
               <label className={`fcat ${!f.cat ? 'on' : ''}`}><input type="radio" name="fcat" value="" checked={!f.cat} onChange={() => setAndClean('cat', '')} /><span>All products</span><em>{all.length}</em></label>
               {CATEGORIES.map((c) => (
-                <label key={c.id} className={`fcat ${f.cat === c.id ? 'on' : ''}`}><input type="radio" name="fcat" value={c.id} checked={f.cat === c.id} onChange={() => setAndClean('cat', c.id)} /><span>{c.name}</span><em>{all.filter((p) => p.cat === c.id).length}</em></label>
+                <label key={c.id} className={`fcat ${f.cat === c.id ? 'on' : ''}`}><input type="radio" name="fcat" value={c.id} checked={f.cat === c.id} onChange={() => setAndClean('cat', c.id)} /><span>{c.name}</span><em>{all.filter((p) => inCat(p, c.id)).length}</em></label>
               ))}
             </div></div>
 
@@ -88,7 +94,9 @@ function Products() {
         </aside>
 
         <section>
-          <div className="row between"><h1>Products</h1><span className="muted">{list.length} found</span></div>
+          <div className="row between"><h1>{f.cat ? CATEGORIES.find((c) => c.id === f.cat)?.name || 'Products' : 'Products'}</h1><span className="muted">{list.length} found</span></div>
+          {f.cat && CATEGORIES.find((c) => c.id === f.cat)?.blurb && <p className="shop-blurb">{CATEGORIES.find((c) => c.id === f.cat).blurb}</p>}
+          {hiddenQuote > 0 && <p className="shop-note">{hiddenQuote} service{hiddenQuote === 1 ? ' is' : 's are'} priced on request, so the price limit hides {hiddenQuote === 1 ? 'it' : 'them'}. <button type="button" className="btn-link" onClick={() => setFilter('max', 0)}>Show all prices</button></p>}
           {/* Phone: Filter button + category chips */}
           <div className="fs-bar">
             <button type="button" className="fs-filter" onClick={() => setSheet(true)}>

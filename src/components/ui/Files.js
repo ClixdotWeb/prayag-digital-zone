@@ -5,22 +5,22 @@ import { fileSize, readUploads } from '@/lib/core';
 import { downloadFile, orderArtwork } from '@/lib/actions';
 
 export function FileCard({ f, onRemove, children }) {
-  const th = f.preview ? <img src={f.preview} alt="" /> : f.blobUrl ? <a href={f.blobUrl} target="_blank" rel="noopener">PDF ↗</a> : f.ext.toUpperCase();
+  const th = f.preview ? <img src={f.preview} alt="" /> : f.url ? <a href={f.url}>{f.ext.toUpperCase()} ↓</a> : f.blobUrl ? <a href={f.blobUrl} target="_blank" rel="noopener">PDF ↗</a> : f.ext.toUpperCase();
   return (
     <div className="file" style={f.superseded ? { opacity: 0.55 } : undefined}>
       {onRemove && <button className="x btn-sm" onClick={onRemove} aria-label="Remove">×</button>}
       <div className="thumb">{th}</div>
       <div className="name">{f.name}</div>
-      <div className="muted">{fileSize(f.size)} · v{f.version}{f.superseded ? ' · replaced' : ''}</div>
+      <div className="muted">{fileSize(f.size)}{f.pages ? ` · ${f.pages} page${f.pages === 1 ? '' : 's'}` : ''} · v{f.version}{f.superseded ? ' · replaced' : ''}</div>
       {children}
     </div>
   );
 }
 
 /** <label class="drop"> with drag & drop; onFiles(records) gets validated file records. */
-export function Drop({ className = 'drop', onFiles, multiple = true, accept, children }) {
+export function Drop({ className = 'drop', onFiles, multiple = true, accept, allow, children }) {
   const [over, setOver] = useState(false);
-  const take = async (list) => { const recs = await readUploads(list); if (recs.length) onFiles(recs); };
+  const take = async (list) => { const recs = await readUploads(list, allow); if (recs.length) onFiles(recs); };
   return (
     <label className={`${className}${over ? ' over' : ''}`}
       onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
@@ -41,14 +41,14 @@ function PickFile({ className, style, multiple, onFiles, children }) {
 }
 
 export function ItemFiles({ o, it, idx, mode }) {
-  const canReplace = mode === 'customer' && o.status <= 3 && !o.cancelled;
+  const canReplace = mode === 'customer' && o.status <= 3 && !o.cancelled && it.kind !== 'print'; // print jobs are priced from their files
   return (
     <>
       <div className="files">
         {it.files.length ? it.files.map((f) => (
           <FileCard key={f.id} f={f}>
             {!f.superseded && <>
-              {mode !== 'customer' && <button className="btn-sm" onClick={() => downloadFile(f.name)}>Download</button>}
+              {mode !== 'customer' && (f.url ? <a className="btn btn-sm" href={f.url} download>Download</a> : <button className="btn-sm" onClick={() => downloadFile(f.name)}>Download</button>)}
               {canReplace && <PickFile className="btn btn-sm" onFiles={(r) => orderArtwork('replace', o.id, idx, r, f.id)}>Replace</PickFile>}
             </>}
           </FileCard>

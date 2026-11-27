@@ -13,7 +13,9 @@ export const store = { S: null };
 export const round2 = (n) => Math.round(n * 100) / 100;
 export const inr = (n, dp = 2) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: dp, maximumFractionDigits: dp });
 export const fmtDate = (t) => new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-export const fmtDT = (t) => new Date(t).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+export const fmtDT = (t) => new Date(t).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+/** Money everywhere in admin: Indian grouping, always 2 decimals (₹1,23,456.00). */
+export const money = (n) => inr(n, 2);
 export const uid = () => Math.random().toString(36).slice(2, 10);
 export const sum = (arr, f) => arr.reduce((a, x) => a + (f ? f(x) : x), 0);
 export const fileSize = (b) => (b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
@@ -31,19 +33,45 @@ export function rerender() { changeFns.forEach((fn) => fn()); }
 export function product(id) {
   const p = PRODUCTS.find((x) => x.id === id);
   if (!p) return null;
-  return { ...p, ...((store.S && store.S.productEdits[id]) || {}) };
+  const ed = (store.S && store.S.productEdits[id]) || {};
+  const out = { ...p, ...ed };
+  // Admin can price a quote-only choice later (₹ added per piece); it then stops asking for a quote.
+  if (ed.choicePrices) {
+    out.options = p.options.map((g) => (ed.choicePrices[g.key] && g.choices ? {
+      ...g, choices: g.choices.map((c, i) => (ed.choicePrices[g.key][i] > 0 ? { ...c, add: ed.choicePrices[g.key][i], quote: false } : c)),
+    } : g));
+  }
+  return out;
 }
+
+/* ---------- Option groups, quote-only products, categories ---------- */
+/** Choice groups have `choices`; other field types: text, number, dims, upload. */
+export const isChoice = (g) => !g.type;
+/** A field with showIf only shows for some choices of another group. */
+export const visible = (g, sel) => !g.showIf || (g.showIf.in || []).includes(sel?.[g.showIf.key] ?? 0);
+/** Priced products have a base price. Products without one show "Get a quote" until admin sets it. */
+export const priced = (p) => typeof p.base === 'number' && p.base > 0;
+/** True when the product, or any selected choice, has no rate yet. */
+export function needsQuote(p, sel) {
+  if (!priced(p)) return true;
+  return p.options.some((g) => isChoice(g) && visible(g, sel) && (g.multi ? (sel[g.key] || []) : [sel[g.key] ?? 0]).some((i) => g.choices[i]?.quote));
+}
+/** A product belongs to its own category and to any extra sections (e.g. A3 Express Printing). */
+export const inCat = (p, cat) => p.cat === cat || (p.sections || []).includes(cat);
+/** Quantity discount tiers: [multiple of minimum quantity, price factor]. Default = the original formula. */
+export const DEFAULT_TIERS = [[10, 0.7], [5, 0.8], [2.5, 0.9]];
 export function allProducts(includeInactive) {
   return PRODUCTS.map((p) => product(p.id)).filter((p) => includeInactive || p.active !== false);
 }
 export function defaultSel(p) {
   const sel = {};
-  p.options.forEach((g) => { sel[g.key] = g.multi ? [] : 0; });
+  p.options.filter(isChoice).forEach((g) => { sel[g.key] = g.multi ? [] : 0; });
   return sel;
 }
 export function calc(p, sel, qty, custom) {
   let unit = p.base, mult = 1, flat = 0;
   for (const g of p.options) {
+    if (!isChoice(g) || !visible(g, sel)) continue;
     const idxs = g.multi ? sel[g.key] || [] : [sel[g.key] ?? 0];
     for (const i of idxs) {
       const c = g.choices[i];
@@ -59,15 +87,21 @@ export function calc(p, sel, qty, custom) {
     }
   }
   const r = qty / p.minQty;
-  const tier = r >= 10 ? 0.7 : r >= 5 ? 0.8 : r >= 2.5 ? 0.9 : 1;
+  const tiers = [...(p.tiers || DEFAULT_TIERS)].sort((a, b) => b[0] - a[0]);
+  const tier = (tiers.find(([m]) => r >= m) || [0, 1])[1];
   const per = unit * mult * tier;
   return { per: round2(per), flat, tier, total: round2(per * qty + flat) };
 }
 /** Fixed quantity choices for a product (e.g. visiting cards: 100 / 200 / 500 / 1000 / 2000). */
 export function qtyOptions(p) { return [1, 2, 5, 10, 20].map((m) => p.minQty * m); }
-export function startPrice(p) { return calc(p, defaultSel(p), p.minQty).total; }
-export function describe(p, sel, custom) {
+/** Lowest starting price, or null for quote-only products. */
+export function startPrice(p) { return priced(p) ? calc(p, defaultSel(p), p.minQty).total : null; }
+export function describe(p, sel, custom, fields) {
   return p.options.map((g) => {
+    if (!visible(g, sel)) return null;
+    if (g.type === 'upload') return null;
+    if (g.type === 'text' || g.type === 'number') { const v = String(fields?.[g.key] ?? '').trim(); return v ? `${g.label}: ${v}` : null; }
+    if (g.type === 'dims') { const v = fields?.[g.key] || {}; return v.w && v.h ? `${g.label}: ${v.w} × ${v.h} ${g.unit || ''}`.trim() : null; }
     if (g.multi) {
       const v = (sel[g.key] || []).map((i) => g.choices[i].label);
       return v.length ? `${g.label}: ${v.join(', ')}` : null;
@@ -77,18 +111,20 @@ export function describe(p, sel, custom) {
     return `${g.label}: ${c.label}`;
   }).filter(Boolean);
 }
-export function makeItem(pid, sel, qty, custom, files) {
+export function makeItem(pid, sel, qty, custom, files, fields) {
   const p = product(pid);
   const pr = calc(p, sel, qty, custom);
   return {
     id: uid(), pid, name: p.name, sel: JSON.parse(JSON.stringify(sel)), qty, custom: custom ? { ...custom } : null,
-    specs: describe(p, sel, custom), per: pr.per, flat: pr.flat, total: pr.total, files: files || [],
+    fields: fields ? JSON.parse(JSON.stringify(fields)) : undefined,
+    specs: describe(p, sel, custom, fields), per: pr.per, flat: pr.flat, total: pr.total, files: files || [],
   };
 }
 export function repriceItem(it) {
   const p = product(it.pid);
   const pr = calc(p, it.sel, it.qty, it.custom);
   Object.assign(it, { per: pr.per, flat: pr.flat, total: pr.total });
+  it.specs = describe(p, it.sel, it.custom, it.fields);
 }
 export function couponCheck(code, sub) {
   const S = store.S;
@@ -125,6 +161,11 @@ export function load() {
     if (raw) {
       store.S = JSON.parse(raw);
       if (store.S.settings.company === 'PrintCo') store.S.settings.company = 'BRD';
+      // Products removed from the catalogue drop out of carts and wishlists; past orders keep their own copy.
+      const exists = (i) => i.kind === 'print' || !!PRODUCTS.find((p) => p.id === i.pid);
+      store.S.cart = (store.S.cart || []).filter(exists);
+      store.S.saved = (store.S.saved || []).filter(exists);
+      store.S.wishlist = (store.S.wishlist || []).filter((id) => PRODUCTS.some((p) => p.id === id));
       autoComplete();
       localStorage.setItem(LS_KEY, JSON.stringify(store.S));
       return;
@@ -174,22 +215,37 @@ export function seed() {
     S.orders.push(o);
     return o;
   };
-  mk(cust[2], [['labels', { paper: 1 }, 2000], ['stickers', { finishing: [0] }, 500]], 10, 12, { courier: 'DTDC', tracking: 'D12345678' });
+  mk(cust[2], [['stickers', { paper: 1 }, 2000], ['flyers', {}, 500]], 10, 12, { courier: 'DTDC', tracking: 'D12345678' });
   mk(cust[0], [['visiting-cards', { paper: 4, lamination: 3, finishing: [1] }, 500]], 10, 9, { courier: 'India Post', tracking: 'EK123456789IN' });
-  mk(cust[1], [['boxes', { size: 1, finishing: [0] }, 1000]], 6, 6, { operator: 'Fathima', machine: MACHINES[0], prodNotes: 'Use client-supplied Pantone 186C for logo.' });
-  mk(cust[4], [['letterheads', {}, 500], ['visiting-cards', {}, 300]], 4, 4, { operator: 'Suresh', machine: MACHINES[1] });
+  mk(cust[1], [['booklets', { pages: 1 }, 100]], 6, 6, { operator: 'Fathima', machine: MACHINES[0], prodNotes: 'Use client-supplied Pantone 186C for logo.' });
+  mk(cust[4], [['posters', {}, 50], ['visiting-cards', {}, 300]], 4, 4, { operator: 'Suresh', machine: MACHINES[1] });
   mk(cust[0], [['brochures', { gsm: 1, lamination: 1 }, 250]], 8, 5, { courier: 'DTDC', tracking: 'D98765432' });
   mk(cust[3], [['flyers', { size: 1 }, 1000]], 3, 3);
   mk(cust[0], [['posters', { gsm: 1 }, 20]], 2, 1);
-  mk(cust[1], [['paper-bags', { size: 1 }, 500]], 1, 0);
+  mk(cust[1], [['brochures', {}, 500]], 1, 0);
   // A part-paid order
   const pp = mk(cust[4], [['booklets', { pages: 1, binding: 3 }, 100]], 1, 0);
   pp.paid = round2(pp.totals.total / 2);
   pp.payments[0].amount = pp.paid;
   pp.payments[0].note = 'Advance 50%';
+  // A Print Now job (B&W A4, priced from the files' page counts) so admin and production show print details.
+  const pf = (name, pages, size) => ({ id: uid(), name, size, ext: 'pdf', pages, version: 1, at: now - DAY / 4 });
+  const pj = mk(cust[3], [['flyers', {}, 500]], 3, 0);
+  pj.items = [{
+    id: uid(), kind: 'print', pid: null, name: 'B&W A4 printing', qty: 210, per: 1.5, flat: 0, total: 315, totalPaise: 31500,
+    specs: ['A4', 'Black & white', 'Double side', '42 page(s) × 5 copies', '105 sheets'],
+    files: [pf('project-report-part-1.pdf', 12, 1840000), pf('project-report-part-2.pdf', 30, 4120000)],
+    print: { options: { type: 'bw', side: 'double', size: 'A4', gsm: null, copies: 5, manualQty: null },
+      quote: { quantity: 210, pages: 42, copies: 5, sheets: 105, manual: false, ratePerUnit: 150, total: 31500, effectiveRate: 150, slabLabel: '100–499' } },
+  }];
+  pj.method = 'pickup';
+  pj.totals = totals(pj.items, '', 'pickup');
+  pj.paid = pj.totals.total;
+  pj.payments[0].amount = pj.paid;
+  pj.due = now + DAY;
 
   S.quotes.push(
-    { id: 'Q-' + S.nextQuote++, name: 'Kasavu Textiles', email: 'buy@kasavu.example', phone: '+91 90000 55555', product: 'Paper bags with rope handle', qty: 5000, details: 'Large size, 2 colour print, kraft, rope handles. Need before Onam.', files: [], status: 'new', at: now - DAY / 2 },
+    { id: 'Q-' + S.nextQuote++, name: 'Kasavu Textiles', email: 'buy@kasavu.example', phone: '+91 90000 55555', product: 'PVC ID Card Printing', qty: 250, details: 'Staff ID cards, double side, with printed lanyards. Need before Onam.', files: [], status: 'new', at: now - DAY / 2 },
     { id: 'Q-' + S.nextQuote++, name: demo.name, email: demo.email, phone: demo.phone, product: 'Wedding cards with foil + envelope', qty: 300, details: 'Square 6 × 6 in, gold foil, matching envelope.', files: [], status: 'sent', price: 21000, validUntil: now + 10 * DAY, adminNote: 'Includes envelopes and gold foiling on front. 7 working days.', at: now - 2 * DAY },
   );
   S.tickets.push({ id: 'T-1', email: demo.email, name: demo.name, subject: 'Change delivery address for PO-1005', msg: 'Please deliver to our new office.', status: 'open', at: now - DAY });
@@ -249,11 +305,11 @@ function thumb(file) {
   });
 }
 /** Validates files and returns records (same rules as the prototype). Resolves to [] if none are valid. */
-export async function readUploads(fileList) {
+export async function readUploads(fileList, allowed = ALLOWED_EXT) {
   const out = [];
   for (const f of Array.from(fileList || [])) {
     const ext = (f.name.split('.').pop() || '').toLowerCase();
-    if (!ALLOWED_EXT.includes(ext)) { toast(`${f.name}: format not allowed`, 'Use PDF, AI, PSD, CDR, SVG, PNG, JPG or TIFF'); continue; }
+    if (!allowed.includes(ext)) { toast(`${f.name}: format not allowed`, 'Use ' + allowed.map((x) => x.toUpperCase()).join(', ')); continue; }
     if (f.size > MAX_FILE_MB * 1048576) { toast(`${f.name}: file too large`, `Maximum ${MAX_FILE_MB} MB per file`); continue; }
     const rec = { id: uid(), name: f.name, size: f.size, ext, version: 1, at: Date.now() };
     if (['png', 'jpg', 'jpeg', 'svg'].includes(ext)) { try { rec.preview = await thumb(f); } catch { /* no preview */ } }

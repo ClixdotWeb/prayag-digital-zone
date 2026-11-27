@@ -4,17 +4,18 @@
 // the pages and components do not need to change.
 import { STAGES } from './data';
 import {
-  store, DAY, DEMO_USER, inr, round2, uid, sum, product, defaultSel, makeItem, repriceItem, totals,
+  store, DAY, DEMO_USER, inr, round2, uid, sum, product, defaultSel, makeItem, repriceItem, totals, describe, isChoice, visible,
   save, rerender, resetDemo, setStatus, notify, log, toast,
 } from './core';
 import { session, navigate, openCart, closeCart, openPay } from './session';
+import { PRINT_DAYS, verifyPrintJobs } from './print-actions';
 
 const S = () => store.S;
 const findOrder = (id) => S().orders.find((o) => o.id === id);
 
 /* ---------- Product configurator ---------- */
 export function initCfg(p) {
-  if (!session.cfg || session.cfg.pid !== p.id) session.cfg = { pid: p.id, sel: defaultSel(p), qty: '', custom: { w: 210, h: 297 }, files: [] };
+  if (!session.cfg || session.cfg.pid !== p.id) session.cfg = { pid: p.id, sel: defaultSel(p), qty: '', custom: { w: 210, h: 297 }, files: [], fields: {}, slots: {} };
   return session.cfg;
 }
 export function pickOption(p, key, i) {
@@ -30,13 +31,40 @@ export function setCfg(field, value) {
   if (field === 'qty') session.cfg.qty = value; else session.cfg.custom[field] = +value;
   rerender();
 }
+/** Text / number / size fields (seal text, gold lettering, width × height …). */
+export function setField(key, value) { session.cfg.fields[key] = value; rerender(); }
+export function setDim(key, side, value) { session.cfg.fields[key] = { ...(session.cfg.fields[key] || {}), [side]: value }; rerender(); }
+/** Extra upload slots (data sheet, photos ZIP, logo …). */
+export function addSlotFiles(key, recs) { (session.cfg.slots[key] ||= []).push(...recs.map((r) => ({ ...r, slot: key }))); toast(`${recs.length} file(s) uploaded`); rerender(); }
+export function removeSlotFile(key, id) { session.cfg.slots[key] = (session.cfg.slots[key] || []).filter((f) => f.id !== id); rerender(); }
+/** Fields and slots that apply to the current choices (hidden ones are left out). */
+function cfgExtras(p, cfg) {
+  const shown = p.options.filter((g) => !isChoice(g) && visible(g, cfg.sel));
+  const fields = Object.fromEntries(shown.filter((g) => g.type !== 'upload' && cfg.fields[g.key] !== undefined).map((g) => [g.key, cfg.fields[g.key]]));
+  const files = [...cfg.files, ...shown.filter((g) => g.type === 'upload').flatMap((g) => cfg.slots[g.key] || [])];
+  return { fields, files };
+}
+/** "Get a quote": opens the quote form pre-filled with the service, options, quantity and uploaded files. */
+export function requestQuote(p) {
+  const cfg = session.cfg;
+  const { fields, files } = cfgExtras(p, cfg);
+  const custom = p.options.some((g) => isChoice(g) && !g.multi && visible(g, cfg.sel) && g.choices[cfg.sel[g.key]]?.custom) ? cfg.custom : null;
+  const lines = describe(p, cfg.sel, custom, fields);
+  const slotNames = p.options.filter((g) => g.type === 'upload' && visible(g, cfg.sel) && (cfg.slots[g.key] || []).length).map((g) => `${g.label}: ${cfg.slots[g.key].map((f) => f.name).join(', ')}`);
+  const details = [...lines, ...slotNames].join('\n');
+  session.quoteFiles = [...files];
+  const qs = new URLSearchParams({ product: p.id, details });
+  if (parseInt(cfg.qty, 10) > 0) qs.set('qty', String(parseInt(cfg.qty, 10)));
+  navigate('/quote?' + qs.toString());
+}
 export function addCfgFiles(recs) { session.cfg.files.push(...recs); toast(`${recs.length} file(s) uploaded`); rerender(); }
 export function removeCfgFile(id) { session.cfg.files = session.cfg.files.filter((f) => f.id !== id); rerender(); }
 function addCfgToCart() {
   const cfg = session.cfg;
   const p = product(cfg.pid);
-  const custom = p.options.some((g) => !g.multi && g.choices[cfg.sel[g.key]]?.custom) ? cfg.custom : null;
-  S().cart.push(makeItem(cfg.pid, cfg.sel, Math.max(p.minQty, parseInt(cfg.qty, 10) || p.minQty), custom, cfg.files));
+  const custom = p.options.some((g) => isChoice(g) && !g.multi && visible(g, cfg.sel) && g.choices[cfg.sel[g.key]]?.custom) ? cfg.custom : null;
+  const { fields, files } = cfgExtras(p, cfg);
+  S().cart.push(makeItem(cfg.pid, cfg.sel, Math.max(p.minQty, parseInt(cfg.qty, 10) || p.minQty), custom, files, fields));
   session.cfg = null;
   save();
 }
@@ -87,7 +115,9 @@ export function clearFilters() { session.shopFilter = { q: '', cat: '', paper: [
 
 /* ---------- Checkout ---------- */
 export function setCheckoutMethod(m) { session.checkoutMethod = m; rerender(); }
-export function submitCheckout(fd) {
+export async function submitCheckout(fd) {
+  // Print jobs: the server re-checks page counts and prices before any payment.
+  if (!(await verifyPrintJobs())) { navigate('/cart'); return; }
   const st = S().settings;
   const t = totals(S().cart, S().coupon, session.checkoutMethod);
   const billing = { address: fd.b_address, city: fd.b_city, state: fd.b_state, pin: fd.b_pin };
@@ -96,7 +126,7 @@ export function submitCheckout(fd) {
   openPay(payNow, `${S().cart.length} item(s)`, fd, (method) => {
     const customer = { name: fd.name, email: fd.email, phone: fd.phone, gstin: fd.gstin, ...billing };
     if (!S().user) S().user = customer;
-    const days = Math.max(...S().cart.map((i) => product(i.pid).days));
+    const days = Math.max(...S().cart.map((i) => (i.kind === 'print' ? PRINT_DAYS : product(i.pid).days || 3)));
     const now = Date.now();
     const o = {
       id: 'PO-' + S().nextOrder++, customer, billing, shipping, items: S().cart, totals: t, method: session.checkoutMethod, notes: fd.notes,
@@ -207,17 +237,73 @@ export function submitTicket(fd) {
 export function subscribe() { toast('Subscribed!', 'You will get our offers by email'); }
 
 /* ---------- Admin ---------- */
-export function resetAll() { if (confirm('Reset all demo data?')) { resetDemo(); session.cfg = null; toast('Demo data reset'); } }
-export function exportCsv() {
-  const head = ['Order', 'Date', 'Customer', 'Phone', 'Items', 'Subtotal', 'Discount', 'GST', 'Delivery', 'Total', 'Paid', 'Status'];
-  const rows = S().orders.map((o) => [o.id, new Date(o.createdAt).toISOString().slice(0, 10), o.customer.name, o.customer.phone,
-    o.items.map((i) => `${i.name} x ${i.qty}`).join('; '), o.totals.sub, o.totals.disc, o.totals.gst, o.totals.delivery, o.totals.total, o.paid,
-    o.cancelled ? 'Cancelled' : STAGES[o.status].name]);
-  const csv = [head, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+/** Resets all demo data. The caller asks for confirmation (Admin → Settings → Demo data). */
+export function resetAll() { resetDemo(); session.cfg = null; log('Admin', 'Demo data reset'); save(); toast('Demo data reset'); }
+
+/** Downloads rows as CSV. head: column names, rows: arrays of values. */
+export function downloadCsv(name, head, rows) {
+  const csv = [head, ...rows].map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-  a.download = `orders-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })); // BOM so Excel reads ₹ and Malayalam names
+  a.download = `${name}-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+/** Orders report. Pass the filtered list to export exactly what is on screen; defaults to every order. */
+export function exportCsv(list) {
+  const os = Array.isArray(list) ? list : S().orders;
+  const day = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const head = ['Order', 'Date', 'Customer', 'Phone', 'Items', 'Subtotal', 'Discount', 'GST', 'Delivery', 'Total', 'Paid', 'Balance', 'Status', 'Due', 'Late'];
+  const rows = os.map((o) => {
+    const bal = o.cancelled ? 0 : Math.max(0, round2(o.totals.total - o.paid));
+    const late = !o.cancelled && o.status <= 7 && o.due < Date.now();
+    return [o.id, day(o.createdAt), o.customer.name, o.customer.phone, o.items.map((i) => `${i.name} x ${i.qty}`).join('; '),
+      o.totals.sub, o.totals.disc, o.totals.gst, o.totals.delivery, o.totals.total, o.paid, bal,
+      o.cancelled ? 'Cancelled' : STAGES[o.status].name, day(o.due), late ? 'Yes' : ''];
+  });
+  downloadCsv('orders', head, rows);
+}
+/** Records the balance as received (cash / UPI at the counter / bank transfer) without moving the job backwards. */
+export function adminRecordPayment(id, method = 'Cash / UPI at counter') {
+  const o = findOrder(id);
+  const amt = round2(o.totals.total - o.paid);
+  if (amt <= 0) return;
+  if (!confirm(`Record ${inr(amt)} received for ${o.id} (${method})?`)) return;
+  if (o.status === 0) { adminMarkPaid(id); return; }
+  o.payments.push({ id: 'cash_' + uid(), amount: amt, method, at: Date.now(), note: 'Balance' });
+  o.paid = o.totals.total;
+  log('Admin', `${o.id} balance ${inr(amt)} received (${method})`);
+  notify(o.customer, `Payment ${inr(amt)} received for ${o.id}`);
+  save();
+}
+/**
+ * Walk-in / phone order taken at the counter.
+ * d: { customer: {name, phone, email}, lines: [{ pid, sel, qty, fields } | { custom: true, name, qty, price, details }],
+ *      files, method, payment: 'full'|'advance'|'none', advance, payMethod, notes }
+ * Returns the new order id.
+ */
+export function createWalkInOrder(d) {
+  const items = d.lines.map((l) => (l.custom
+    ? { id: uid(), pid: null, name: l.name, qty: l.qty, specs: l.details ? [l.details] : [], per: round2(l.price / l.qty), flat: 0, total: round2(l.price), files: [] }
+    : makeItem(l.pid, l.sel, l.qty, null, [])));
+  if (items.length && d.files?.length) items[0].files = d.files;
+  const t = totals(items, '', d.method);
+  const now = Date.now();
+  const days = Math.max(1, ...d.lines.map((l) => (l.custom ? 3 : product(l.pid).days || 3)));
+  const amount = d.payment === 'full' ? t.total : d.payment === 'advance' ? Math.min(t.total, round2(+d.advance || 0)) : 0;
+  const customer = { name: d.customer.name.trim(), phone: d.customer.phone.trim(), email: (d.customer.email || '').trim(), address: '', city: '', state: '', pin: '' };
+  const o = {
+    id: 'PO-' + S().nextOrder++, customer, items, totals: t, method: d.method, notes: d.notes || '', source: 'walk-in',
+    status: 0, history: [{ s: 0, at: now, by: 'Admin (walk-in)' }], createdAt: now, due: now + days * DAY,
+    payments: amount > 0 ? [{ id: 'cash_' + uid(), amount, method: d.payMethod || 'Cash', at: now, note: amount < t.total ? 'Advance' : '' }] : [],
+    refunds: [], paid: amount, operator: '', machine: '', prodNotes: '', courier: '', tracking: '', cancelled: false,
+  };
+  S().orders.push(o);
+  log('Admin', `Walk-in order ${o.id} for ${customer.name} (${inr(t.total)})`);
+  if (amount > 0) setStatus(o, 1, 'Admin (walk-in)', true, true);
+  if (customer.email || customer.phone) notify(customer, `Order ${o.id} confirmed — ${inr(t.total)}${amount < t.total ? `, balance ${inr(t.total - amount)}` : ', paid in full'}`);
+  save();
+  return o.id;
 }
 export function setAdminFilter(v) { session.adminFilter = v; rerender(); }
 export function adminMarkPaid(id) {

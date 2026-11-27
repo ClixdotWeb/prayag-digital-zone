@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRef } from 'react';
 import { useApp } from '@/context/StoreProvider';
 import { allProducts } from '@/lib/core';
+import { HIGHLIGHTS, PHOTO_IDS, SERVICE_GROUPS } from '@/lib/data';
 import Icon, { Photo } from '@/components/ui/Icon';
 import ProductTile from '@/components/ui/ProductTile';
 import Machines from '@/components/ui/Machines';
@@ -17,7 +18,7 @@ const USP = [['tag', 'Instant prices', 'No waiting for a quote'], ['check', 'Art
   ['shield', 'Pay securely', 'UPI, cards, net banking, wallets'], ['truck', 'Live tracking', 'From printing to doorstep']];
 const TESTI = [
   ['“Ordered 1,000 visiting cards at night and they were at the shop in three days. The velvet lamination feels premium.”', 'Restaurant owner, Kozhikode', '#e31e24'],
-  ['“The proof approval step saved us from a typo on 5,000 labels.”', 'Ayurveda brand, Malappuram', '#18a06a'],
+  ['“The proof approval step saved us from a typo on 5,000 stickers.”', 'Ayurveda brand, Malappuram', '#18a06a'],
 ];
 const Chevron = ({ left }) => <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={left ? 'm15 18-6-6 6-6' : 'm9 18 6-6-6-6'} /></svg>;
 
@@ -37,11 +38,12 @@ export default function Home() {
           <p className="lead">{st.heroText}</p>
           <div className="dr-btns">
             <Link className="dr-pill dr-dark" href="/products">Browse products</Link>
+            <Link className="dr-pill dr-light" href="/print">Print now</Link>
             <Link className="dr-pill dr-light" href="/quote">Get a bulk quote</Link>
           </div>
         </div>
         <div className="dr-fan">
-          {allProducts().slice(0, 7).map((p, i) => (
+          {allProducts().filter((p) => PHOTO_IDS.includes(p.id)).slice(0, 7).map((p, i) => (
             <Link key={p.id} href={`/product/${p.id}`} className={`dr-card dr-c${i}`} aria-label={p.name}><Photo id={p.id} alt={p.name} /></Link>
           ))}
         </div>
@@ -66,6 +68,15 @@ export default function Home() {
         <div className="sx-car" ref={car}>{popular.map((p) => <ProductTile key={p.id} p={p} />)}</div>
       </section>
 
+      {/* Our Services — the flyer's service groups + highlights */}
+      <section className="wrap sx-sec svc" id="services">
+        <div className="dr-pop-head"><h2>Our Services</h2><Link className="svc-quote-btn" href="/quote">Get a quote</Link></div>
+        <ul className="svc-hl">{HIGHLIGHTS.map(([i, t]) => <li key={t}><span className="svc-hl-ico"><Icon name={i} /></span>{t}</li>)}</ul>
+        <div className="svc-grid">{SERVICE_GROUPS.map((g) => (
+          <Link key={g.title} href={g.href} className="svc-card"><b>{g.title}</b><span>{g.items}</span><em>View <Icon name="arrow" /></em></Link>
+        ))}</div>
+      </section>
+
       {/* Our machines */}
       <Machines className="wrap sx-sec" />
 
@@ -81,8 +92,8 @@ export default function Home() {
             <Photo id="hero" alt="" />
             <div className="sx-tile-lbl">
               <h3>Visit or call us</h3>
-              <p>BRD, Mavoor Road, Kozhikode, Kerala · Mon–Sat 9:30–7:00 · +91 00000 00000 · hello@brd.example</p>
-              <a className="btn sx-btn-y" href="https://wa.me/910000000000" target="_blank" rel="noopener">WhatsApp</a>
+              <p>Prayag Digital Zone, Medical College Road, Kovoor, Kozhikode 673008, Kerala · Mon–Sat 9:30–7:00 · 081130 33888 · 094952 22288</p>
+              <a className="btn sx-btn-y" href="https://wa.me/918113033888" target="_blank" rel="noopener">WhatsApp</a>
             </div>
           </div>
         </div>

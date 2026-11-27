@@ -1,7 +1,7 @@
 'use client';
 // Service card: no fixed price and no "Add to cart" — the price depends on the options the customer chooses.
 import Link from 'next/link';
-import { store } from '@/lib/core';
+import { priced, store } from '@/lib/core';
 import { toggleWish } from '@/lib/actions';
 import { HeartIcon, Photo } from './Icon';
 
@@ -17,8 +17,10 @@ export default function ProductTile({ p }) {
       </div>
       <div className="body">
         <Link className="name" href={`/product/${p.id}`}>{p.name}</Link>
-        <div className="muted small">From {p.minQty} pcs · Ready in {p.days} working days</div>
-        <Link className="add-btn" href={`/product/${p.id}`}>Choose options &amp; get price</Link>
+        {priced(p)
+          ? <div className="muted small">From {p.minQty} {p.minQty === 1 ? 'piece' : 'pcs'}{p.days ? ` · Ready in ${p.days} working day${p.days === 1 ? '' : 's'}` : ''}</div>
+          : <div className="muted small"><span className="q-badge">Price on request</span></div>}
+        <Link className="add-btn" href={`/product/${p.id}`}>{priced(p) ? 'Choose options & get price' : 'Choose options & get a quote'}</Link>
       </div>
     </div>
   );

@@ -24,7 +24,6 @@ export default function Machines({ className = '' }) {
   return (
     <section className={`mc ${className}`}>
       <div className="mc-head">
-        <span className="mc-kicker">In-house production</span>
         <h2>Our machines</h2>
         <p>Every job is printed, bound and finished in our own press in Kozhikode, so quality and timing stay in our hands.</p>
       </div>

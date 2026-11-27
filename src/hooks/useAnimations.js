@@ -6,6 +6,8 @@ import { useEffect } from 'react';
 export default function useAnimations(pathname, ready) {
   useEffect(() => {
     if (!ready || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    // Staff screens are for daily work: no scroll-reveal or fade-in animations.
+    if (pathname.startsWith('/admin') || pathname.startsWith('/production')) return;
     let ctx, cancelled = false;
     (async () => {
       const { gsap } = await import('gsap');

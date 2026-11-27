@@ -6,7 +6,25 @@ import { inr, product, qtyOptions, totals } from '@/lib/core';
 import { applyCoupon, moveToCart, removeItem, saveForLater, setCartQty } from '@/lib/actions';
 import { Photo } from '@/components/ui/Icon';
 
+function PrintRow({ it, saved }) {
+  return (
+    <div className="card card-flat row" style={{ alignItems: 'flex-start' }}>
+      <div className="pr-cart-ico" aria-hidden="true">{it.print.options.type === 'bw' ? 'B&W' : it.print.options.size}</div>
+      <div style={{ flex: 1, minWidth: 200 }}><strong><Link href="/print">{it.name}</Link></strong>
+        <div className="muted small">{it.specs.join(' · ')}</div>
+        <div className="small">{it.files.length ? `${it.files.length} file(s): ${it.files.map((f) => f.name).join(', ')}` : 'Quantity entered manually — upload files after ordering'}</div>
+        <div className="small muted">{it.qty.toLocaleString('en-IN')} prints · {inr(it.per)} per print · price confirmed by our server</div>
+        <div className="row" style={{ marginTop: 6 }}>
+          {saved ? <button className="btn-sm" onClick={() => moveToCart(it.id)}>Move to cart</button> : <button className="btn-sm" onClick={() => saveForLater(it.id)}>Save for later</button>}
+          <button className="btn-sm" onClick={() => removeItem(it.id, saved)}>Remove</button>
+        </div></div>
+      <div style={{ fontWeight: 700 }}>{inr(it.total)}</div>
+    </div>
+  );
+}
+
 function Row({ it, saved }) {
+  if (it.kind === 'print') return <PrintRow it={it} saved={saved} />;
   const p = product(it.pid);
   return (
     <div className="card card-flat row" style={{ alignItems: 'flex-start' }}>
